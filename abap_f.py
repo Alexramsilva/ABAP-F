@@ -10,53 +10,30 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 
-# Inicializar tablas en la sesión
+# Inicializar las tablas en la sesión
 if 'buchungen' not in st.session_state:
-    st.session_state['buchungen'] = pd.DataFrame(columns=['BELNR', 'BUKRS', 'GJAHR', 'KONTO', 'Betrag', 'SOLL', 'HABEN'])
+    st.session_state['buchungen'] = pd.DataFrame(columns=['BELNR', 'BUKRS', 'GJAHR', 'KONTO', 'SOLL', 'HABEN'])
 
 if 'catalogo_sat' not in st.session_state:
     st.session_state['catalogo_sat'] = pd.DataFrame(columns=['CUENTA', 'DESCRIPCION', 'TIPO'])
 
-# Función para procesar comandos ABAP simulados
-def verarbeite_abap_befehl(befehl):
-    befehl = befehl.strip().upper()
-    if befehl.startswith("SELECT"):
-        teile = befehl.split("FROM")
-        felder = teile[0].replace("SELECT", "").strip()
-        tabelle = teile[1].strip()
-
-        if tabelle == "BUCHUNGEN":
-            if "WHERE" in befehl:
-                bedingung = befehl.split("WHERE")[1].strip()
-                if "BELNR" in bedingung:
-                    belnr = bedingung.split("=")[1].strip().replace("'", "")
-                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['BELNR'] == belnr]
-                else:
-                    ergebnis = pd.DataFrame()
-            else:
-                ergebnis = st.session_state['buchungen']
-            return ergebnis
-
-    return pd.DataFrame()
-
 # Función para agregar cuentas al catálogo del SAT
-def add_cuenta_sat(cuenta, descripcion, tipo):
-    new_row = pd.DataFrame({'CUENTA': [cuenta], 'DESCRIPCION': [descripcion], 'TIPO': [tipo]})
-    st.session_state['catalogo_sat'] = pd.concat([st.session_state['catalogo_sat'], new_row], ignore_index=True)
+def agregar_cuenta_sat(cuenta, descripcion, tipo):
+    nueva_fila = pd.DataFrame({'CUENTA': [cuenta], 'DESCRIPCION': [descripcion], 'TIPO': [tipo]})
+    st.session_state['catalogo_sat'] = pd.concat([st.session_state['catalogo_sat'], nueva_fila], ignore_index=True)
 
-# Función para agregar póliza con al menos 3 registros
-def add_buchung(belnr, bukrs, gjahr, cuentas, montos, solls, habens):
+# Función para agregar registros de pólizas
+def agregar_póliza(belnr, bukrs, gjahr, cuentas, solls, habens):
     for i in range(len(cuentas)):
-        new_row = pd.DataFrame({
+        nueva_fila = pd.DataFrame({
             'BELNR': [belnr],
             'BUKRS': [bukrs],
             'GJAHR': [gjahr],
             'KONTO': [cuentas[i]],
-            'Betrag': [montos[i]],
             'SOLL': [solls[i]],
             'HABEN': [habens[i]]
         })
-        st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
+        st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], nueva_fila], ignore_index=True)
 
 # Menú lateral
 menu = st.sidebar.selectbox("Menú", [
@@ -72,13 +49,13 @@ menu = st.sidebar.selectbox("Menú", [
 # Sección de Catálogo de Cuentas
 if menu == "Catálogo de Cuentas":
     st.title("Catálogo de Cuentas del SAT")
-    with st.form(key="add_cuenta_form"):
+    with st.form(key="form_cuenta"):
         cuenta = st.text_input("CUENTA")
         descripcion = st.text_input("DESCRIPCIÓN")
         tipo = st.selectbox("TIPO", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
-        submit_button_cuenta = st.form_submit_button(label="Agregar Cuenta")
-        if submit_button_cuenta:
-            add_cuenta_sat(cuenta, descripcion, tipo)
+        submit_button = st.form_submit_button(label="Agregar Cuenta")
+        if submit_button:
+            agregar_cuenta_sat(cuenta, descripcion, tipo)
             st.success("Cuenta agregada exitosamente.")
 
 # Sección de Pólizas
@@ -86,41 +63,38 @@ elif menu == "Módulo de Pólizas":
     st.title("Módulo de Pólizas")
     cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
 
-    with st.form(key="add_buchung_form"):
+    with st.form(key="form_póliza"):
         belnr = st.text_input("BELNR (Número de documento)")
         bukrs = st.text_input("BUKRS (Sociedad)")
         gjahr = st.text_input("GJAHR (Año fiscal)")
 
         cuentas = []
-        montos = []
         solls = []
         habens = []
 
-        for i in range(3):
+        for i in range(3):  # Mínimo tres registros
             cuenta = st.selectbox(f"KONTO {i+1} (Cuenta)", cuentas_disponibles) if cuentas_disponibles else st.text_input(f"KONTO {i+1}")
-            monto = st.number_input(f"Betrag {i+1} (Monto)", min_value=0.0)
             soll = st.number_input(f"SOLL {i+1} (Debe)", min_value=0.0)
             haben = st.number_input(f"HABEN {i+1} (Haber)", min_value=0.0)
 
             cuentas.append(cuenta)
-            montos.append(monto)
             solls.append(soll)
             habens.append(haben)
 
         submit_button = st.form_submit_button(label="Agregar Póliza")
         if submit_button:
-            add_buchung(belnr, bukrs, gjahr, cuentas, montos, solls, habens)
+            agregar_póliza(belnr, bukrs, gjahr, cuentas, solls, habens)
             st.success("Póliza agregada exitosamente.")
 
 # Sección de Consultas
 elif menu == "Consultas (Auxiliares y Balanzas)":
     st.title("Consultas con Comandos ABAP")
-    abap_befehl = st.text_area("Ingrese su comando ABAP", "SELECT * FROM buchungen WHERE BELNR = '1001'")
+    abap_comando = st.text_area("Ingrese su comando ABAP", "SELECT * FROM buchungen WHERE BELNR = '1001'")
 
     if st.button("Ejecutar Comando ABAP"):
-        ergebnis = verarbeite_abap_befehl(abap_befehl)
-        if not ergebnis.empty:
-            st.dataframe(ergebnis)
+        resultado = ejecutar_comando_abap(abap_comando)
+        if not resultado.empty:
+            st.dataframe(resultado)
         else:
             st.warning("No se encontraron resultados.")
 
