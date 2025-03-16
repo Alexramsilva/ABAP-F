@@ -11,20 +11,19 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 
-# Simulación de tablas BKPF y BSEG
-BKPF = pd.DataFrame([
-    {"BELNR": "1000001", "BUKRS": "MX01", "GJAHR": 2024, "BLDAT": "2024-03-01", "MONAT": 3, "TCODE": "FB01"},
-    {"BELNR": "1000002", "BUKRS": "MX01", "GJAHR": 2024, "BLDAT": "2024-03-05", "MONAT": 3, "TCODE": "F-02"},
-])
+# Simulación de bases de datos temporales (diccionarios)
+catalogo_cuentas = []
+polizas = []
+movimientos_contables = []
 
-BSEG = pd.DataFrame([
-    {"BELNR": "1000001", "BUKRS": "MX01", "HKONT": "100010", "DMBTR": 5000, "SHKZG": "H"},
-    {"BELNR": "1000001", "BUKRS": "MX01", "HKONT": "200020", "DMBTR": 5000, "SHKZG": "S"},
-    {"BELNR": "1000002", "BUKRS": "MX01", "HKONT": "300030", "DMBTR": 8000, "SHKZG": "H"},
-])
+# Simulación de tablas SAP FI
+BKPF = pd.DataFrame([{"BELNR": "1000001", "BUKRS": "MX01", "GJAHR": 2024, "BLART": "SA"}])
+BSEG = pd.DataFrame([{"BELNR": "1000001", "BUKRS": "MX01", "GJAHR": 2024, "HKONT": "600010", "DMBTR": 1500}])
 
+# Función para interpretar comandos ABAP
 def ejecutar_abap(comando):
     comando = comando.strip().upper()
+
     if comando.startswith("SELECT"):
         if "FROM BKPF" in comando:
             return BKPF
@@ -32,34 +31,106 @@ def ejecutar_abap(comando):
             return BSEG
         else:
             return "Tabla no reconocida"
+
     elif comando.startswith("LOOP AT"):
         tabla = comando.split(" ")[2].strip(".")
         if tabla == "BKPF":
-            return BKPF.to_string(index=False)
+            return BKPF.to_string()
         elif tabla == "BSEG":
-            return BSEG.to_string(index=False)
+            return BSEG.to_string()
         else:
             return "Tabla no reconocida en LOOP AT."
+
     else:
         return "Comando ABAP no reconocido."
 
-# Aplicación en Streamlit
-st.title("💼 Simulador SAP FI en Python")
-st.sidebar.header("Menú Principal")
+# Función para mostrar el menú principal
+def main():
+    st.title("📊 Sistema Contable de Información Financiera")
+    st.sidebar.title("Menú Principal")
 
-menu = st.sidebar.radio("Selecciona una opción", ["Consultar BKPF", "Consultar BSEG", "Ejecutar Comando ABAP"])
+    menu = st.sidebar.radio(
+        "Selecciona un módulo",
+        ["Catálogo de Cuentas", "Módulo de Pólizas", "Reportes Financieros", "Simulador ABAP FI"]
+    )
 
-if menu == "Consultar BKPF":
-    st.subheader("📜 Tabla BKPF (Encabezado de Documentos)")
-    st.write(BKPF)
+    if menu == "Catálogo de Cuentas":
+        modulo_catalogo_cuentas()
+    elif menu == "Módulo de Pólizas":
+        modulo_polizas()
+    elif menu == "Reportes Financieros":
+        reportes_financieros()
+    elif menu == "Simulador ABAP FI":
+        simulador_abap()
 
-elif menu == "Consultar BSEG":
-    st.subheader("📊 Tabla BSEG (Posiciones de Documentos)")
-    st.write(BSEG)
-
-elif menu == "Ejecutar Comando ABAP":
-    st.subheader("🔧 Ejecutar Comando ABAP")
-    comando = st.text_area("Ingresa un comando ABAP", "SELECT * FROM BKPF")
-    if st.button("Ejecutar"):
+# Simulador de Código ABAP
+def simulador_abap():
+    st.header("💻 Simulador ABAP para SAP FI")
+    comando = st.text_area("Escribe un comando ABAP")
+    if st.button("Ejecutar Comando"):
         resultado = ejecutar_abap(comando)
-        st.write(resultado)
+        st.text_area("Resultado", resultado, height=200)
+
+# Catálogo de cuentas
+def modulo_catalogo_cuentas():
+    st.header("📒 Catálogo de Cuentas")
+    cuenta = st.text_input("Clave de cuenta")
+    nombre = st.text_input("Nombre de la cuenta")
+    tipo = st.selectbox("Tipo de cuenta", ["Activo", "Pasivo", "Capital", "Ingresos", "Gastos"])
+
+    if st.button("Agregar Cuenta"):
+        catalogo_cuentas.append({"cuenta": cuenta, "nombre": nombre, "tipo": tipo})
+        st.success(f"Cuenta {cuenta} - {nombre} agregada.")
+
+    st.subheader("Cuentas Registradas")
+    st.write(catalogo_cuentas)
+
+# Módulo de pólizas
+def modulo_polizas():
+    st.header("📄 Módulo de Pólizas")
+    folio = st.text_input("Folio de Póliza")
+    fecha = st.date_input("Fecha de Póliza", date.today())
+    tipo = st.selectbox("Tipo de Póliza", ["Ingreso", "Egreso", "Diario"])
+    concepto = st.text_area("Concepto")
+
+    cuenta = st.selectbox("Cuenta Contable", [c["cuenta"] for c in catalogo_cuentas])
+    debe = st.number_input("Debe", min_value=0.0, step=0.01)
+    haber = st.number_input("Haber", min_value=0.0, step=0.01)
+
+    if st.button("Agregar Movimiento"):
+        movimientos_contables.append({"folio": folio, "fecha": fecha, "cuenta": cuenta, "debe": debe, "haber": haber})
+        st.success(f"Movimiento agregado a la póliza {folio}")
+
+    if st.button("Guardar Póliza"):
+        polizas.append({"folio": folio, "fecha": fecha, "tipo": tipo, "concepto": concepto})
+        st.success(f"Póliza {folio} registrada.")
+
+    st.subheader("Movimientos Registrados")
+    st.write(movimientos_contables)
+
+# Reportes Financieros
+def reportes_financieros():
+    st.header("📊 Reportes Financieros")
+
+    reporte = st.selectbox("Selecciona el reporte", [
+        "Balanza de Comprobación",
+        "Auxiliares por Cuenta",
+        "Balance General",
+        "Estado de Resultados",
+        "Estado de Flujo de Efectivo"
+    ])
+
+    if reporte == "Balanza de Comprobación":
+        mostrar_balanza()
+    elif reporte == "Auxiliares por Cuenta":
+        mostrar_auxiliares()
+    elif reporte == "Balance General":
+        mostrar_balance_general()
+    elif reporte == "Estado de Resultados":
+        mostrar_estado_resultados()
+    elif reporte == "Estado de Flujo de Efectivo":
+        mostrar_flujo_efectivo()
+
+# Ejecutar la app
+if __name__ == "__main__":
+    main()
