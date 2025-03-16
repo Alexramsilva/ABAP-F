@@ -139,7 +139,7 @@ elif menu == "Módulo de Pólizas":
         bukrs = st.text_input("BUKRS (Sociedad)")
         gjahr = st.text_input("GJAHR (Año fiscal)")
 
-        # Campo de selección de cuenta basado en las cuentas registradas en el catálogo
+        # Implementación del buscador de cuentas con slider
         if cuentas_disponibles:
             cuenta = st.selectbox("KONTO (Selecciona una cuenta)", cuentas_disponibles)
         else:
