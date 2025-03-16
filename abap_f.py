@@ -95,80 +95,96 @@ def estado_resultados():
         'Resultado Neto': [resultado]
     })
 
-# Interfaz de Streamlit
-st.title("SAP ABAP Befehlsimulator y Generación de Reportes Contables")
+# Menú lateral
+menu = st.sidebar.selectbox("Menú", [
+    "Inicio",
+    "Catálogo de Cuentas",
+    "Módulo de Pólizas",
+    "Consultas (Auxiliares y Balanzas)",
+    "Estado de Resultados",
+    "Balance General",
+    "Configuración"
+])
 
-# Ingresar comando ABAP
-abap_befehl = st.text_area("Geben Sie Ihren ABAP-Befehl ein", "SELECT * FROM buchungen WHERE BELNR = '1001'")
+# Lógica para cada sección del menú
+if menu == "Inicio":
+    st.title("Bienvenido al Sistema Contable de Información Financiera")
+    st.write("Este sistema simula el manejo de pólizas y consultas en SAP FI, con la capacidad de registrar cuentas y generar reportes contables.")
 
-# Formulario para agregar nuevas pólizas
-st.subheader("Neue Buchung Hinzufügen (Agregar nueva póliza)")
+elif menu == "Catálogo de Cuentas":
+    st.title("Catálogo de Cuentas del SAT")
+    st.subheader("Agregar Cuenta al Catálogo")
+    with st.form(key="add_cuenta_form"):
+        cuenta = st.text_input("CUENTA (Número de cuenta)")
+        descripcion = st.text_input("DESCRIPCIÓN (Descripción de la cuenta)")
+        tipo = st.selectbox("TIPO (Tipo de cuenta)", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
 
-# Obtener las cuentas del catálogo del SAT para mostrarlas como opciones
-cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
+        submit_button_cuenta = st.form_submit_button(label="Agregar Cuenta")
 
-with st.form(key="add_buchung_form"):
-    belnr = st.text_input("BELNR (Número de documento)")
-    bukrs = st.text_input("BUKRS (Sociedad)")
-    gjahr = st.text_input("GJAHR (Año fiscal)")
+        if submit_button_cuenta:
+            if cuenta and descripcion and tipo:
+                add_cuenta_sat(cuenta, descripcion, tipo)
+                st.success("Cuenta agregada al catálogo del SAT exitosamente.")
+            else:
+                st.warning("Por favor, complete todos los campos.")
 
-    # Campo de selección de cuenta basado en las cuentas registradas en el catálogo
-    if cuentas_disponibles:
-        cuenta = st.selectbox("KONTO (Selecciona una cuenta)", cuentas_disponibles)
-    else:
-        cuenta = st.text_input("KONTO (Ingrese cuenta manualmente si no hay cuentas en el catálogo)")
+elif menu == "Módulo de Pólizas":
+    st.title("Módulo de Pólizas")
+    st.subheader("Agregar Nueva Póliza")
 
-    betrag = st.number_input("Betrag (Monto)", min_value=0.0)
-    soll = st.number_input("SOLL (Debe)", min_value=0.0)
-    haben = st.number_input("HABEN (Haber)", min_value=0.0)
+    cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
 
-    submit_button = st.form_submit_button(label="Póliza Añadir")
+    with st.form(key="add_buchung_form"):
+        belnr = st.text_input("BELNR (Número de documento)")
+        bukrs = st.text_input("BUKRS (Sociedad)")
+        gjahr = st.text_input("GJAHR (Año fiscal)")
 
-    if submit_button:
-        if belnr and bukrs and gjahr and cuenta:
-            add_buchung(belnr, bukrs, gjahr, cuenta, betrag, soll, haben)
-            st.success("Póliza agregada exitosamente.")
+        # Campo de selección de cuenta basado en las cuentas registradas en el catálogo
+        if cuentas_disponibles:
+            cuenta = st.selectbox("KONTO (Selecciona una cuenta)", cuentas_disponibles)
         else:
-            st.warning("Por favor, complete todos los campos.")
+            cuenta = st.text_input("KONTO (Ingrese cuenta manualmente si no hay cuentas en el catálogo)")
 
-# Formulario para agregar cuentas al catálogo del SAT
-st.subheader("Agregar Cuenta al Catálogo del SAT")
-with st.form(key="add_cuenta_form"):
-    cuenta = st.text_input("CUENTA (Número de cuenta)")
-    descripcion = st.text_input("DESCRIPCIÓN (Descripción de la cuenta)")
-    tipo = st.selectbox("TIPO (Tipo de cuenta)", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
+        betrag = st.number_input("Betrag (Monto)", min_value=0.0)
+        soll = st.number_input("SOLL (Debe)", min_value=0.0)
+        haben = st.number_input("HABEN (Haber)", min_value=0.0)
 
-    submit_button_cuenta = st.form_submit_button(label="Agregar Cuenta")
+        submit_button = st.form_submit_button(label="Póliza Añadir")
 
-    if submit_button_cuenta:
-        if cuenta and descripcion and tipo:
-            add_cuenta_sat(cuenta, descripcion, tipo)
-            st.success("Cuenta agregada al catálogo del SAT exitosamente.")
-        else:
-            st.warning("Por favor, complete todos los campos.")
+        if submit_button:
+            if belnr and bukrs and gjahr and cuenta:
+                add_buchung(belnr, bukrs, gjahr, cuenta, betrag, soll, haben)
+                st.success("Póliza agregada exitosamente.")
+            else:
+                st.warning("Por favor, complete todos los campos.")
 
-# Generación de Reportes
-st.subheader("Generar Reportes Contables")
+elif menu == "Consultas (Auxiliares y Balanzas)":
+    st.title("Consultas Auxiliares y Balanzas")
+    abap_befehl = st.text_area("Ingrese su comando ABAP", "SELECT * FROM buchungen WHERE BELNR = '1001'")
 
-# Botón para generar el Balance General
-if st.button("Generar Balance General"):
-    balance = balance_general()
-    st.write("### Balance General:")
-    st.dataframe(balance)
+    if st.button("Ejecutar Comando ABAP"):
+        if abap_befehl:
+            ergebnis = verarbeite_abap_befehl(abap_befehl)
+            if not ergebnis.empty:
+                st.write("### Resultado de la consulta:")
+                st.dataframe(ergebnis)
+            else:
+                st.warning("No se encontraron resultados para la consulta.")
 
-# Botón para generar el Estado de Resultados
-if st.button("Generar Estado de Resultados"):
-    estado = estado_resultados()
-    st.write("### Estado de Resultados:")
-    st.dataframe(estado)
+elif menu == "Estado de Resultados":
+    st.title("Generar Estado de Resultados")
+    if st.button("Generar Estado de Resultados"):
+        estado = estado_resultados()
+        st.write("### Estado de Resultados:")
+        st.dataframe(estado)
 
-# Procesar el comando ABAP
-if st.button("Befehl Ausführen (Ejecutar Comando)"):
-    if abap_befehl:
-        # Procesar el comando ABAP y mostrar el resultado
-        ergebnis = verarbeite_abap_befehl(abap_befehl)
-        if not ergebnis.empty:
-            st.write("### Ergebnis der Abfrage:")
-            st.dataframe(ergebnis)
-        else:
-            st.warning("Es wurden keine Ergebnisse für den eingegebenen Befehl gefunden.")
+elif menu == "Balance General":
+    st.title("Generar Balance General")
+    if st.button("Generar Balance General"):
+        balance = balance_general()
+        st.write("### Balance General:")
+        st.dataframe(balance)
+
+elif menu == "Configuración":
+    st.title("Configuración")
+    st.write("Aquí puedes configurar aspectos del sistema.")
