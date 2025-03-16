@@ -103,11 +103,21 @@ abap_befehl = st.text_area("Geben Sie Ihren ABAP-Befehl ein", "SELECT * FROM buc
 
 # Formulario para agregar nuevas pólizas
 st.subheader("Neue Buchung Hinzufügen (Agregar nueva póliza)")
+
+# Obtener las cuentas del catálogo del SAT para mostrarlas como opciones
+cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
+
 with st.form(key="add_buchung_form"):
     belnr = st.text_input("BELNR (Número de documento)")
     bukrs = st.text_input("BUKRS (Sociedad)")
     gjahr = st.text_input("GJAHR (Año fiscal)")
-    konto = st.text_input("KONTO (Cuenta)")
+
+    # Campo de selección de cuenta basado en las cuentas registradas en el catálogo
+    if cuentas_disponibles:
+        cuenta = st.selectbox("KONTO (Selecciona una cuenta)", cuentas_disponibles)
+    else:
+        cuenta = st.text_input("KONTO (Ingrese cuenta manualmente si no hay cuentas en el catálogo)")
+
     betrag = st.number_input("Betrag (Monto)", min_value=0.0)
     soll = st.number_input("SOLL (Debe)", min_value=0.0)
     haben = st.number_input("HABEN (Haber)", min_value=0.0)
@@ -115,8 +125,8 @@ with st.form(key="add_buchung_form"):
     submit_button = st.form_submit_button(label="Póliza Añadir")
 
     if submit_button:
-        if belnr and bukrs and gjahr and konto:
-            add_buchung(belnr, bukrs, gjahr, konto, betrag, soll, haben)
+        if belnr and bukrs and gjahr and cuenta:
+            add_buchung(belnr, bukrs, gjahr, cuenta, betrag, soll, haben)
             st.success("Póliza agregada exitosamente.")
         else:
             st.warning("Por favor, complete todos los campos.")
