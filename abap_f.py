@@ -49,15 +49,15 @@ def verarbeite_abap_befehl(befehl):
     return pd.DataFrame()  # Si no es un comando SELECT válido
 
 # Función para agregar una nueva póliza a la tabla
-def add_buchung(belnr, bukrs, gjahr, konto, betrag, soll, haben):
+def add_buchung(belnr, bukrs, gjahr, cuenta_1, cuenta_2, cuenta_3, betrag_1, betrag_2, betrag_3, soll_1, soll_2, soll_3, haben_1, haben_2, haben_3):
     new_row = pd.DataFrame({
         'BELNR': [belnr],
         'BUKRS': [bukrs],
         'GJAHR': [gjahr],
-        'KONTO': [konto],
-        'Betrag': [betrag],
-        'SOLL': [soll],
-        'HABEN': [haben]
+        'KONTO': [cuenta_1, cuenta_2, cuenta_3],
+        'Betrag': [betrag_1, betrag_2, betrag_3],
+        'SOLL': [soll_1, soll_2, soll_3],
+        'HABEN': [haben_1, haben_2, haben_3]
     })
     st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
 
@@ -141,19 +141,31 @@ elif menu == "Módulo de Pólizas":
 
         # Implementación del buscador de cuentas con slider
         if cuentas_disponibles:
-            cuenta = st.selectbox("KONTO (Selecciona una cuenta)", cuentas_disponibles)
+            cuenta_1 = st.selectbox("KONTO 1 (Selecciona una cuenta)", cuentas_disponibles)
+            cuenta_2 = st.selectbox("KONTO 2 (Selecciona otra cuenta)", cuentas_disponibles)
+            cuenta_3 = st.selectbox("KONTO 3 (Selecciona otra cuenta)", cuentas_disponibles)
         else:
-            cuenta = st.text_input("KONTO (Ingrese cuenta manualmente si no hay cuentas en el catálogo)")
+            cuenta_1 = st.text_input("KONTO 1 (Ingrese cuenta manualmente)")
+            cuenta_2 = st.text_input("KONTO 2 (Ingrese cuenta manualmente)")
+            cuenta_3 = st.text_input("KONTO 3 (Ingrese cuenta manualmente)")
 
-        betrag = st.number_input("Betrag (Monto)", min_value=0.0)
-        soll = st.number_input("SOLL (Debe)", min_value=0.0)
-        haben = st.number_input("HABEN (Haber)", min_value=0.0)
+        betrag_1 = st.number_input("Betrag 1 (Monto)", min_value=0.0)
+        betrag_2 = st.number_input("Betrag 2 (Monto)", min_value=0.0)
+        betrag_3 = st.number_input("Betrag 3 (Monto)", min_value=0.0)
+
+        soll_1 = st.number_input("SOLL 1 (Debe)", min_value=0.0)
+        soll_2 = st.number_input("SOLL 2 (Debe)", min_value=0.0)
+        soll_3 = st.number_input("SOLL 3 (Debe)", min_value=0.0)
+
+        haben_1 = st.number_input("HABEN 1 (Haber)", min_value=0.0)
+        haben_2 = st.number_input("HABEN 2 (Haber)", min_value=0.0)
+        haben_3 = st.number_input("HABEN 3 (Haber)", min_value=0.0)
 
         submit_button = st.form_submit_button(label="Póliza Añadir")
 
         if submit_button:
-            if belnr and bukrs and gjahr and cuenta:
-                add_buchung(belnr, bukrs, gjahr, cuenta, betrag, soll, haben)
+            if belnr and bukrs and gjahr and cuenta_1:
+                add_buchung(belnr, bukrs, gjahr, cuenta_1, cuenta_2, cuenta_3, betrag_1, betrag_2, betrag_3, soll_1, soll_2, soll_3, haber_1, haber_2, haber_3)
                 st.success("Póliza agregada exitosamente.")
             else:
                 st.warning("Por favor, complete todos los campos.")
