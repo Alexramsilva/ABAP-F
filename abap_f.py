@@ -14,9 +14,11 @@ import pandas as pd
 if 'buchungen' not in st.session_state:
     st.session_state['buchungen'] = pd.DataFrame(columns=['BELNR', 'BUKRS', 'GJAHR', 'KONTO', 'Betrag', 'SOLL', 'HABEN'])
 
+if 'catalogo_sat' not in st.session_state:
+    st.session_state['catalogo_sat'] = pd.DataFrame(columns=['CUENTA', 'DESCRIPCION', 'TIPO'])
+
 # Función para procesar los comandos ABAP con términos SAP FI
 def verarbeite_abap_befehl(befehl):
-    # Simula el procesamiento de consultas ABAP con términos SAP FI
     befehl = befehl.strip().upper()
     if befehl.startswith("SELECT"):
         teile = befehl.split("FROM")
@@ -24,7 +26,6 @@ def verarbeite_abap_befehl(befehl):
         tabelle = teile[1].strip()
 
         if tabelle == "BUCHUNGEN":
-            # Simula una consulta SELECT en la tabla buchungen (Pólizas)
             if "WHERE" in befehl:
                 bedingung = befehl.split("WHERE")[1].strip()
                 if "BELNR" in bedingung:
@@ -60,8 +61,42 @@ def add_buchung(belnr, bukrs, gjahr, konto, betrag, soll, haben):
     })
     st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
 
+# Función para agregar cuentas al catálogo del SAT
+def add_cuenta_sat(cuenta, descripcion, tipo):
+    new_row = pd.DataFrame({
+        'CUENTA': [cuenta],
+        'DESCRIPCION': [descripcion],
+        'TIPO': [tipo]
+    })
+    st.session_state['catalogo_sat'] = pd.concat([st.session_state['catalogo_sat'], new_row], ignore_index=True)
+
+# Función para generar el Balance General
+def balance_general():
+    activos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
+    pasivos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
+    capital = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
+
+    return pd.DataFrame({
+        'Activo': [activos],
+        'Pasivo': [pasivos],
+        'Capital': [capital],
+        'Total': [activos - pasivos]
+    })
+
+# Función para generar el Estado de Resultados
+def estado_resultados():
+    ingresos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
+    egresos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
+
+    resultado = ingresos - egresos
+    return pd.DataFrame({
+        'Ingresos': [ingresos],
+        'Egresos': [egresos],
+        'Resultado Neto': [resultado]
+    })
+
 # Interfaz de Streamlit
-st.title("SAP ABAP Befehlsimulator (Simulador de Comandos ABAP con SAP FI)")
+st.title("SAP ABAP Befehlsimulator y Generación de Reportes Contables")
 
 # Ingresar comando ABAP
 abap_befehl = st.text_area("Geben Sie Ihren ABAP-Befehl ein", "SELECT * FROM buchungen WHERE BELNR = '1001'")
@@ -86,7 +121,38 @@ with st.form(key="add_buchung_form"):
         else:
             st.warning("Por favor, complete todos los campos.")
 
-# Procesar el comando
+# Formulario para agregar cuentas al catálogo del SAT
+st.subheader("Agregar Cuenta al Catálogo del SAT")
+with st.form(key="add_cuenta_form"):
+    cuenta = st.text_input("CUENTA (Número de cuenta)")
+    descripcion = st.text_input("DESCRIPCIÓN (Descripción de la cuenta)")
+    tipo = st.selectbox("TIPO (Tipo de cuenta)", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
+
+    submit_button_cuenta = st.form_submit_button(label="Agregar Cuenta")
+
+    if submit_button_cuenta:
+        if cuenta and descripcion and tipo:
+            add_cuenta_sat(cuenta, descripcion, tipo)
+            st.success("Cuenta agregada al catálogo del SAT exitosamente.")
+        else:
+            st.warning("Por favor, complete todos los campos.")
+
+# Generación de Reportes
+st.subheader("Generar Reportes Contables")
+
+# Botón para generar el Balance General
+if st.button("Generar Balance General"):
+    balance = balance_general()
+    st.write("### Balance General:")
+    st.dataframe(balance)
+
+# Botón para generar el Estado de Resultados
+if st.button("Generar Estado de Resultados"):
+    estado = estado_resultados()
+    st.write("### Estado de Resultados:")
+    st.dataframe(estado)
+
+# Procesar el comando ABAP
 if st.button("Befehl Ausführen (Ejecutar Comando)"):
     if abap_befehl:
         # Procesar el comando ABAP y mostrar el resultado
