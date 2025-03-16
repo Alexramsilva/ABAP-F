@@ -48,132 +48,53 @@ def verarbeite_abap_befehl(befehl):
 
     return pd.DataFrame()  # Si no es un comando SELECT válido
 
-# Función para agregar una nueva póliza a la tabla
-def add_buchung(belnr, bukrs, gjahr, cuenta_1, cuenta_2, cuenta_3, betrag_1, betrag_2, betrag_3, soll_1, soll_2, soll_3, haben_1, haben_2, haben_3):
-    new_row = pd.DataFrame({
-        'BELNR': [belnr],
-        'BUKRS': [bukrs],
-        'GJAHR': [gjahr],
-        'KONTO': [cuenta_1, cuenta_2, cuenta_3],
-        'Betrag': [betrag_1, betrag_2, betrag_3],
-        'SOLL': [soll_1, soll_2, soll_3],
-        'HABEN': [haben_1, haben_2, haben_3]
-    })
-    st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
-
-# Función para agregar cuentas al catálogo del SAT
-def add_cuenta_sat(cuenta, descripcion, tipo):
-    new_row = pd.DataFrame({
-        'CUENTA': [cuenta],
-        'DESCRIPCION': [descripcion],
-        'TIPO': [tipo]
-    })
-    st.session_state['catalogo_sat'] = pd.concat([st.session_state['catalogo_sat'], new_row], ignore_index=True)
-
-# Función para generar el Balance General
-def balance_general():
-    activos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
-    pasivos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
-    capital = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
-
-    return pd.DataFrame({
-        'Activo': [activos],
-        'Pasivo': [pasivos],
-        'Capital': [capital],
-        'Total': [activos - pasivos]
-    })
-
-# Función para generar el Estado de Resultados
-def estado_resultados():
-    ingresos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
-    egresos = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'].isin([])]['Betrag'].sum()  # No hay cuentas precargadas
-
-    resultado = ingresos - egresos
-    return pd.DataFrame({
-        'Ingresos': [ingresos],
-        'Egresos': [egresos],
-        'Resultado Neto': [resultado]
-    })
+# BAPI Simulada para insertar una póliza en FI
+def bapi_acc_document_post(belnr, bukrs, gjahr, kontos, betrags, solls, habens):
+    for i in range(len(kontos)):
+        new_row = pd.DataFrame({
+            'BELNR': [belnr],
+            'BUKRS': [bukrs],
+            'GJAHR': [gjahr],
+            'KONTO': [kontos[i]],
+            'Betrag': [betrags[i]],
+            'SOLL': [solls[i]],
+            'HABEN': [habens[i]]
+        })
+        st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
+    return "Documento contable creado exitosamente."
 
 # Menú lateral
 menu = st.sidebar.selectbox("Menú", [
-    "Inicio",
-    "Catálogo de Cuentas",
-    "Módulo de Pólizas",
-    "Consultas (Auxiliares y Balanzas)",
-    "Estado de Resultados",
-    "Balance General",
-    "Configuración"
+    "Inicio", "Módulo de Pólizas", "Consultas (ABAP en FI)"
 ])
 
-# Lógica para cada sección del menú
 if menu == "Inicio":
-    st.title("Bienvenido al Sistema Contable de Información Financiera")
-    st.write("Este sistema simula el manejo de pólizas y consultas en SAP FI, con la capacidad de registrar cuentas y generar reportes contables.")
-
-elif menu == "Catálogo de Cuentas":
-    st.title("Catálogo de Cuentas del SAT")
-    st.subheader("Agregar Cuenta al Catálogo")
-    with st.form(key="add_cuenta_form"):
-        cuenta = st.text_input("CUENTA (Número de cuenta)")
-        descripcion = st.text_input("DESCRIPCIÓN (Descripción de la cuenta)")
-        tipo = st.selectbox("TIPO (Tipo de cuenta)", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
-
-        submit_button_cuenta = st.form_submit_button(label="Agregar Cuenta")
-
-        if submit_button_cuenta:
-            if cuenta and descripcion and tipo:
-                add_cuenta_sat(cuenta, descripcion, tipo)
-                st.success("Cuenta agregada al catálogo del SAT exitosamente.")
-            else:
-                st.warning("Por favor, complete todos los campos.")
+    st.title("Bienvenido al Sistema Contable basado en SAP FI")
+    st.write("Simulación de manejo de pólizas y consultas en FI.")
 
 elif menu == "Módulo de Pólizas":
-    st.title("Módulo de Pólizas")
-    st.subheader("Agregar Nueva Póliza")
-
-    cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
+    st.title("Registro de Pólizas en SAP FI")
 
     with st.form(key="add_buchung_form"):
         belnr = st.text_input("BELNR (Número de documento)")
         bukrs = st.text_input("BUKRS (Sociedad)")
         gjahr = st.text_input("GJAHR (Año fiscal)")
-
-        # Implementación del buscador de cuentas con slider
-        if cuentas_disponibles:
-            cuenta_1 = st.selectbox("KONTO 1 (Selecciona una cuenta)", cuentas_disponibles)
-            cuenta_2 = st.selectbox("KONTO 2 (Selecciona otra cuenta)", cuentas_disponibles)
-            cuenta_3 = st.selectbox("KONTO 3 (Selecciona otra cuenta)", cuentas_disponibles)
-        else:
-            cuenta_1 = st.text_input("KONTO 1 (Ingrese cuenta manualmente)")
-            cuenta_2 = st.text_input("KONTO 2 (Ingrese cuenta manualmente)")
-            cuenta_3 = st.text_input("KONTO 3 (Ingrese cuenta manualmente)")
-
-        betrag_1 = st.number_input("Betrag 1 (Monto)", min_value=0.0)
-        betrag_2 = st.number_input("Betrag 2 (Monto)", min_value=0.0)
-        betrag_3 = st.number_input("Betrag 3 (Monto)", min_value=0.0)
-
-        soll_1 = st.number_input("SOLL 1 (Debe)", min_value=0.0)
-        soll_2 = st.number_input("SOLL 2 (Debe)", min_value=0.0)
-        soll_3 = st.number_input("SOLL 3 (Debe)", min_value=0.0)
-
-        haben_1 = st.number_input("HABEN 1 (Haber)", min_value=0.0)
-        haben_2 = st.number_input("HABEN 2 (Haber)", min_value=0.0)
-        haben_3 = st.number_input("HABEN 3 (Haber)", min_value=0.0)
-
-        submit_button = st.form_submit_button(label="Póliza Añadir")
+        kontos = [st.text_input(f"KONTO {i+1}") for i in range(3)]
+        betrags = [st.number_input(f"Betrag {i+1}", min_value=0.0) for i in range(3)]
+        solls = [st.number_input(f"SOLL {i+1}", min_value=0.0) for i in range(3)]
+        habens = [st.number_input(f"HABEN {i+1}", min_value=0.0) for i in range(3)]
+        submit_button = st.form_submit_button(label="Registrar Póliza")
 
         if submit_button:
-            if belnr and bukrs and gjahr and cuenta_1:
-                add_buchung(belnr, bukrs, gjahr, cuenta_1, cuenta_2, cuenta_3, betrag_1, betrag_2, betrag_3, soll_1, soll_2, soll_3, haber_1, haber_2, haber_3)
-                st.success("Póliza agregada exitosamente.")
+            if belnr and bukrs and gjahr and any(kontos):
+                mensaje = bapi_acc_document_post(belnr, bukrs, gjahr, kontos, betrags, solls, habens)
+                st.success(mensaje)
             else:
                 st.warning("Por favor, complete todos los campos.")
 
-elif menu == "Consultas (Auxiliares y Balanzas)":
-    st.title("Consultas Auxiliares y Balanzas")
-    abap_befehl = st.text_area("Ingrese su comando ABAP", "SELECT * FROM buchungen WHERE BELNR = '1001'")
-
+elif menu == "Consultas (ABAP en FI)":
+    st.title("Ejecutar Comandos ABAP en SAP FI")
+    abap_befehl = st.text_area("Ingrese su comando ABAP", "SELECT * FROM BUCHUNGEN WHERE BELNR = '1001'")
     if st.button("Ejecutar Comando ABAP"):
         if abap_befehl:
             ergebnis = verarbeite_abap_befehl(abap_befehl)
@@ -182,21 +103,3 @@ elif menu == "Consultas (Auxiliares y Balanzas)":
                 st.dataframe(ergebnis)
             else:
                 st.warning("No se encontraron resultados para la consulta.")
-
-elif menu == "Estado de Resultados":
-    st.title("Generar Estado de Resultados")
-    if st.button("Generar Estado de Resultados"):
-        estado = estado_resultados()
-        st.write("### Estado de Resultados:")
-        st.dataframe(estado)
-
-elif menu == "Balance General":
-    st.title("Generar Balance General")
-    if st.button("Generar Balance General"):
-        balance = balance_general()
-        st.write("### Balance General:")
-        st.dataframe(balance)
-
-elif menu == "Configuración":
-    st.title("Configuración")
-    st.write("Aquí puedes configurar aspectos del sistema.")
