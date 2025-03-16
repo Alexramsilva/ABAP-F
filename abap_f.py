@@ -9,128 +9,90 @@ Original file is located at
 
 import streamlit as st
 import pandas as pd
-from datetime import date
 
-# Simulación de bases de datos temporales (diccionarios)
-catalogo_cuentas = []
-polizas = []
-movimientos_contables = []
+# Inicializar las tablas vacías en el estado de la sesión
+if 'buchungen' not in st.session_state:
+    st.session_state['buchungen'] = pd.DataFrame(columns=['BELNR', 'BUKRS', 'GJAHR', 'KONTO', 'Betrag', 'SOLL', 'HABEN'])
 
-# Simulación de tablas SAP FI
-BKPF = pd.DataFrame([{"BELNR": "1000001", "BUKRS": "MX01", "GJAHR": 2024, "BLART": "SA"}])
-BSEG = pd.DataFrame([{"BELNR": "1000001", "BUKRS": "MX01", "GJAHR": 2024, "HKONT": "600010", "DMBTR": 1500}])
+# Función para procesar los comandos ABAP con términos SAP FI
+def verarbeite_abap_befehl(befehl):
+    # Simula el procesamiento de consultas ABAP con términos SAP FI
+    befehl = befehl.strip().upper()
+    if befehl.startswith("SELECT"):
+        teile = befehl.split("FROM")
+        felder = teile[0].replace("SELECT", "").strip()
+        tabelle = teile[1].strip()
 
-# Función para interpretar comandos ABAP
-def ejecutar_abap(comando):
-    comando = comando.strip().upper()
+        if tabelle == "BUCHUNGEN":
+            # Simula una consulta SELECT en la tabla buchungen (Pólizas)
+            if "WHERE" in befehl:
+                bedingung = befehl.split("WHERE")[1].strip()
+                if "BELNR" in bedingung:
+                    belnr = bedingung.split("=")[1].strip().replace("'", "")
+                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['BELNR'] == belnr]
+                elif "BUKRS" in bedingung:
+                    bukrs = bedingung.split("=")[1].strip().replace("'", "")
+                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['BUKRS'] == bukrs]
+                elif "GJAHR" in bedingung:
+                    gjahr = bedingung.split("=")[1].strip().replace("'", "")
+                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['GJAHR'] == gjahr]
+                elif "KONTO" in bedingung:
+                    konto = bedingung.split("=")[1].strip().replace("'", "")
+                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'] == konto]
+                else:
+                    ergebnis = pd.DataFrame()  # No encuentra el campo en la condición
+            else:
+                ergebnis = st.session_state['buchungen']  # Si no hay WHERE, devuelve toda la tabla
+            return ergebnis
 
-    if comando.startswith("SELECT"):
-        if "FROM BKPF" in comando:
-            return BKPF
-        elif "FROM BSEG" in comando:
-            return BSEG
+    return pd.DataFrame()  # Si no es un comando SELECT válido
+
+# Función para agregar una nueva póliza a la tabla
+def add_buchung(belnr, bukrs, gjahr, konto, betrag, soll, haben):
+    new_row = pd.DataFrame({
+        'BELNR': [belnr],
+        'BUKRS': [bukrs],
+        'GJAHR': [gjahr],
+        'KONTO': [konto],
+        'Betrag': [betrag],
+        'SOLL': [soll],
+        'HABEN': [haben]
+    })
+    st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
+
+# Interfaz de Streamlit
+st.title("SAP ABAP Befehlsimulator (Simulador de Comandos ABAP con SAP FI)")
+
+# Ingresar comando ABAP
+abap_befehl = st.text_area("Geben Sie Ihren ABAP-Befehl ein", "SELECT * FROM buchungen WHERE BELNR = '1001'")
+
+# Formulario para agregar nuevas pólizas
+st.subheader("Neue Buchung Hinzufügen (Agregar nueva póliza)")
+with st.form(key="add_buchung_form"):
+    belnr = st.text_input("BELNR (Número de documento)")
+    bukrs = st.text_input("BUKRS (Sociedad)")
+    gjahr = st.text_input("GJAHR (Año fiscal)")
+    konto = st.text_input("KONTO (Cuenta)")
+    betrag = st.number_input("Betrag (Monto)", min_value=0.0)
+    soll = st.number_input("SOLL (Debe)", min_value=0.0)
+    haben = st.number_input("HABEN (Haber)", min_value=0.0)
+
+    submit_button = st.form_submit_button(label="Póliza Añadir")
+
+    if submit_button:
+        if belnr and bukrs and gjahr and konto:
+            add_buchung(belnr, bukrs, gjahr, konto, betrag, soll, haben)
+            st.success("Póliza agregada exitosamente.")
         else:
-            return "Tabla no reconocida"
+            st.warning("Por favor, complete todos los campos.")
 
-    elif comando.startswith("LOOP AT"):
-        tabla = comando.split(" ")[2].strip(".")
-        if tabla == "BKPF":
-            return BKPF.to_string()
-        elif tabla == "BSEG":
-            return BSEG.to_string()
+# Procesar el comando
+if st.button("Befehl Ausführen (Ejecutar Comando)"):
+    if abap_befehl:
+        # Procesar el comando ABAP y mostrar el resultado
+        ergebnis = verarbeite_abap_befehl(abap_befehl)
+        if not ergebnis.empty:
+            st.write("### Ergebnis der Abfrage:")
+            st.dataframe(ergebnis)
         else:
-            return "Tabla no reconocida en LOOP AT."
-
-    else:
-        return "Comando ABAP no reconocido."
-
-# Función para mostrar el menú principal
-def main():
-    st.title("📊 Sistema Contable de Información Financiera")
-    st.sidebar.title("Menú Principal")
-
-    menu = st.sidebar.radio(
-        "Selecciona un módulo",
-        ["Catálogo de Cuentas", "Módulo de Pólizas", "Reportes Financieros", "Simulador ABAP FI"]
-    )
-
-    if menu == "Catálogo de Cuentas":
-        modulo_catalogo_cuentas()
-    elif menu == "Módulo de Pólizas":
-        modulo_polizas()
-    elif menu == "Reportes Financieros":
-        reportes_financieros()
-    elif menu == "Simulador ABAP FI":
-        simulador_abap()
-
-# Simulador de Código ABAP
-def simulador_abap():
-    st.header("💻 Simulador ABAP para SAP FI")
-    comando = st.text_area("Escribe un comando ABAP")
-    if st.button("Ejecutar Comando"):
-        resultado = ejecutar_abap(comando)
-        st.text_area("Resultado", resultado, height=200)
-
-# Catálogo de cuentas
-def modulo_catalogo_cuentas():
-    st.header("📒 Catálogo de Cuentas")
-    cuenta = st.text_input("Clave de cuenta")
-    nombre = st.text_input("Nombre de la cuenta")
-    tipo = st.selectbox("Tipo de cuenta", ["Activo", "Pasivo", "Capital", "Ingresos", "Gastos"])
-
-    if st.button("Agregar Cuenta"):
-        catalogo_cuentas.append({"cuenta": cuenta, "nombre": nombre, "tipo": tipo})
-        st.success(f"Cuenta {cuenta} - {nombre} agregada.")
-
-    st.subheader("Cuentas Registradas")
-    st.write(catalogo_cuentas)
-
-# Módulo de pólizas
-def modulo_polizas():
-    st.header("📄 Módulo de Pólizas")
-    folio = st.text_input("Folio de Póliza")
-    fecha = st.date_input("Fecha de Póliza", date.today())
-    tipo = st.selectbox("Tipo de Póliza", ["Ingreso", "Egreso", "Diario"])
-    concepto = st.text_area("Concepto")
-
-    cuenta = st.selectbox("Cuenta Contable", [c["cuenta"] for c in catalogo_cuentas])
-    debe = st.number_input("Debe", min_value=0.0, step=0.01)
-    haber = st.number_input("Haber", min_value=0.0, step=0.01)
-
-    if st.button("Agregar Movimiento"):
-        movimientos_contables.append({"folio": folio, "fecha": fecha, "cuenta": cuenta, "debe": debe, "haber": haber})
-        st.success(f"Movimiento agregado a la póliza {folio}")
-
-    if st.button("Guardar Póliza"):
-        polizas.append({"folio": folio, "fecha": fecha, "tipo": tipo, "concepto": concepto})
-        st.success(f"Póliza {folio} registrada.")
-
-    st.subheader("Movimientos Registrados")
-    st.write(movimientos_contables)
-
-# Reportes Financieros
-def reportes_financieros():
-    st.header("📊 Reportes Financieros")
-
-    reporte = st.selectbox("Selecciona el reporte", [
-        "Balanza de Comprobación",
-        "Auxiliares por Cuenta",
-        "Balance General",
-        "Estado de Resultados",
-        "Estado de Flujo de Efectivo"
-    ])
-
-    if reporte == "Balanza de Comprobación":
-        mostrar_balanza()
-    elif reporte == "Auxiliares por Cuenta":
-        mostrar_auxiliares()
-    elif reporte == "Balance General":
-        mostrar_balance_general()
-    elif reporte == "Estado de Resultados":
-        mostrar_estado_resultados()
-    elif reporte == "Estado de Flujo de Efectivo":
-        mostrar_flujo_efectivo()
-
-# Ejecutar la app
-if __name__ == "__main__":
-    main()
+            st.warning("Es wurden keine Ergebnisse für den eingegebenen Befehl gefunden.")
