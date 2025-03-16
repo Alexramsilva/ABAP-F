@@ -10,14 +10,14 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 
-# Inicializar las tablas vacías en el estado de la sesión
+# Inicializar tablas en la sesión
 if 'buchungen' not in st.session_state:
     st.session_state['buchungen'] = pd.DataFrame(columns=['BELNR', 'BUKRS', 'GJAHR', 'KONTO', 'Betrag', 'SOLL', 'HABEN'])
 
 if 'catalogo_sat' not in st.session_state:
     st.session_state['catalogo_sat'] = pd.DataFrame(columns=['CUENTA', 'DESCRIPCION', 'TIPO'])
 
-# Función para procesar los comandos ABAP con términos SAP FI
+# Función para procesar comandos ABAP simulados
 def verarbeite_abap_befehl(befehl):
     befehl = befehl.strip().upper()
     if befehl.startswith("SELECT"):
@@ -31,75 +31,114 @@ def verarbeite_abap_befehl(befehl):
                 if "BELNR" in bedingung:
                     belnr = bedingung.split("=")[1].strip().replace("'", "")
                     ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['BELNR'] == belnr]
-                elif "BUKRS" in bedingung:
-                    bukrs = bedingung.split("=")[1].strip().replace("'", "")
-                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['BUKRS'] == bukrs]
-                elif "GJAHR" in bedingung:
-                    gjahr = bedingung.split("=")[1].strip().replace("'", "")
-                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['GJAHR'] == gjahr]
-                elif "KONTO" in bedingung:
-                    konto = bedingung.split("=")[1].strip().replace("'", "")
-                    ergebnis = st.session_state['buchungen'][st.session_state['buchungen']['KONTO'] == konto]
                 else:
-                    ergebnis = pd.DataFrame()  # No encuentra el campo en la condición
+                    ergebnis = pd.DataFrame()
             else:
-                ergebnis = st.session_state['buchungen']  # Si no hay WHERE, devuelve toda la tabla
+                ergebnis = st.session_state['buchungen']
             return ergebnis
 
-    return pd.DataFrame()  # Si no es un comando SELECT válido
+    return pd.DataFrame()
 
-# BAPI Simulada para insertar una póliza en FI
-def bapi_acc_document_post(belnr, bukrs, gjahr, kontos, betrags, solls, habens):
-    for i in range(len(kontos)):
+# Función para agregar cuentas al catálogo del SAT
+def add_cuenta_sat(cuenta, descripcion, tipo):
+    new_row = pd.DataFrame({'CUENTA': [cuenta], 'DESCRIPCION': [descripcion], 'TIPO': [tipo]})
+    st.session_state['catalogo_sat'] = pd.concat([st.session_state['catalogo_sat'], new_row], ignore_index=True)
+
+# Función para agregar póliza con al menos 3 registros
+def add_buchung(belnr, bukrs, gjahr, cuentas, montos, solls, habens):
+    for i in range(len(cuentas)):
         new_row = pd.DataFrame({
             'BELNR': [belnr],
             'BUKRS': [bukrs],
             'GJAHR': [gjahr],
-            'KONTO': [kontos[i]],
-            'Betrag': [betrags[i]],
+            'KONTO': [cuentas[i]],
+            'Betrag': [montos[i]],
             'SOLL': [solls[i]],
             'HABEN': [habens[i]]
         })
         st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], new_row], ignore_index=True)
-    return "Documento contable creado exitosamente."
 
 # Menú lateral
 menu = st.sidebar.selectbox("Menú", [
-    "Inicio", "Módulo de Pólizas", "Consultas (ABAP en FI)"
+    "Inicio",
+    "Catálogo de Cuentas",
+    "Módulo de Pólizas",
+    "Consultas (Auxiliares y Balanzas)",
+    "Estado de Resultados",
+    "Balance General",
+    "Configuración"
 ])
 
-if menu == "Inicio":
-    st.title("Bienvenido al Sistema Contable basado en SAP FI")
-    st.write("Simulación de manejo de pólizas y consultas en FI.")
+# Sección de Catálogo de Cuentas
+if menu == "Catálogo de Cuentas":
+    st.title("Catálogo de Cuentas del SAT")
+    with st.form(key="add_cuenta_form"):
+        cuenta = st.text_input("CUENTA")
+        descripcion = st.text_input("DESCRIPCIÓN")
+        tipo = st.selectbox("TIPO", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
+        submit_button_cuenta = st.form_submit_button(label="Agregar Cuenta")
+        if submit_button_cuenta:
+            add_cuenta_sat(cuenta, descripcion, tipo)
+            st.success("Cuenta agregada exitosamente.")
 
+# Sección de Pólizas
 elif menu == "Módulo de Pólizas":
-    st.title("Registro de Pólizas en SAP FI")
+    st.title("Módulo de Pólizas")
+    cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
 
     with st.form(key="add_buchung_form"):
         belnr = st.text_input("BELNR (Número de documento)")
         bukrs = st.text_input("BUKRS (Sociedad)")
         gjahr = st.text_input("GJAHR (Año fiscal)")
-        kontos = [st.text_input(f"KONTO {i+1}") for i in range(3)]
-        betrags = [st.number_input(f"Betrag {i+1}", min_value=0.0) for i in range(3)]
-        solls = [st.number_input(f"SOLL {i+1}", min_value=0.0) for i in range(3)]
-        habens = [st.number_input(f"HABEN {i+1}", min_value=0.0) for i in range(3)]
-        submit_button = st.form_submit_button(label="Registrar Póliza")
 
+        cuentas = []
+        montos = []
+        solls = []
+        habens = []
+
+        for i in range(3):
+            cuenta = st.selectbox(f"KONTO {i+1} (Cuenta)", cuentas_disponibles) if cuentas_disponibles else st.text_input(f"KONTO {i+1}")
+            monto = st.number_input(f"Betrag {i+1} (Monto)", min_value=0.0)
+            soll = st.number_input(f"SOLL {i+1} (Debe)", min_value=0.0)
+            haben = st.number_input(f"HABEN {i+1} (Haber)", min_value=0.0)
+
+            cuentas.append(cuenta)
+            montos.append(monto)
+            solls.append(soll)
+            habens.append(haben)
+
+        submit_button = st.form_submit_button(label="Agregar Póliza")
         if submit_button:
-            if belnr and bukrs and gjahr and any(kontos):
-                mensaje = bapi_acc_document_post(belnr, bukrs, gjahr, kontos, betrags, solls, habens)
-                st.success(mensaje)
-            else:
-                st.warning("Por favor, complete todos los campos.")
+            add_buchung(belnr, bukrs, gjahr, cuentas, montos, solls, habens)
+            st.success("Póliza agregada exitosamente.")
 
-elif menu == "Consultas (ABAP en FI)":
-    st.title("Ejecutar Comandos ABAP en SAP FI")
-    abap_befehl = st.text_area("Ingrese su comando ABAP", "SELECT * FROM BUCHUNGEN WHERE BELNR = '1001'")
+# Sección de Consultas
+elif menu == "Consultas (Auxiliares y Balanzas)":
+    st.title("Consultas con Comandos ABAP")
+    abap_befehl = st.text_area("Ingrese su comando ABAP", "SELECT * FROM buchungen WHERE BELNR = '1001'")
+
     if st.button("Ejecutar Comando ABAP"):
-        if abap_befehl:
-            ergebnis = verarbeite_abap_befehl(abap_befehl)
-            if not ergebnis.empty:
-                st.write("### Resultado de la consulta:")
-                st.dataframe(ergebnis)
-            else:
-                st.warning("No se encontraron resultados para la consulta.")
+        ergebnis = verarbeite_abap_befehl(abap_befehl)
+        if not ergebnis.empty:
+            st.dataframe(ergebnis)
+        else:
+            st.warning("No se encontraron resultados.")
+
+# Estado de Resultados
+elif menu == "Estado de Resultados":
+    st.title("Estado de Resultados")
+    if st.button("Generar Estado de Resultados"):
+        st.write("### Estado de Resultados:")
+        st.dataframe(pd.DataFrame({'Ingresos': [0], 'Egresos': [0], 'Resultado Neto': [0]}))
+
+# Balance General
+elif menu == "Balance General":
+    st.title("Balance General")
+    if st.button("Generar Balance General"):
+        st.write("### Balance General:")
+        st.dataframe(pd.DataFrame({'Activo': [0], 'Pasivo': [0], 'Capital': [0], 'Total': [0]}))
+
+# Configuración
+elif menu == "Configuración":
+    st.title("Configuración")
+    st.write("Aquí puedes configurar aspectos del sistema.")
