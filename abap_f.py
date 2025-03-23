@@ -102,20 +102,47 @@ def mostrar_balance_general():
     st.write(f"Total Pasivos: {total_pasivos:.2f}")
     st.write(f"Total Capital: {total_capital:.2f}")
 
-# Módulo de Pólizas
+# Menú principal
+if menu == "Inicio":
+    st.image("UNRC.png", caption="Universidad Nacional Rosario Castellanos", width=550)
+    st.title("Sistema Contable de Información Financiera")
+    st.write("Bienvenido al Sistema Contable para la UCA de Sistemas Contables de Información Financiera.")
+
+elif menu == "Catálogo de Cuentas":
+    st.title("Catálogo de Cuentas")
+
+    with st.form("Alta de Cuenta"):
+        codigo = st.text_input("Código")
+        nombre = st.text_input("Nombre")
+        tipo = st.selectbox("Tipo", ["Activo", "Pasivo", "Capital", "Ingresos", "Gastos"])
+        submit = st.form_submit_button("Agregar Cuenta")
+
+        if submit:
+            nueva_cuenta = pd.DataFrame([[codigo, nombre, tipo]], columns=['Código', 'Nombre', 'Tipo'])
+            st.session_state['catalogo_cuentas'] = pd.concat([st.session_state['catalogo_cuentas'], nueva_cuenta], ignore_index=True)
+            st.success("Cuenta agregada correctamente")
+
+    st.dataframe(st.session_state['catalogo_cuentas'])
+
 elif menu == "Módulo de Pólizas":
     st.title("Módulo de Pólizas")
+    # Implementación del módulo de pólizas aquí
 
-    st.write("### Pólizas Registradas")
-    st.dataframe(st.session_state['polizas'])
+elif menu == "Consultas (Auxiliares y Balanzas)":
+    st.title("Consultas")
+    mostrar_balanza()
 
-    folios_existentes = st.session_state['polizas']['Folio'].unique().tolist()
-    if folios_existentes:
-        folio_seleccionado = st.selectbox("Selecciona un folio para eliminar", folios_existentes)
-        if st.button("Eliminar Póliza Seleccionada"):
-            st.session_state['polizas'] = st.session_state['polizas'][st.session_state['polizas']['Folio'] != folio_seleccionado]
-            st.success("Póliza eliminada correctamente.")
+elif menu == "Estado de Resultados":
+    mostrar_estado_resultados()
 
-    if st.button("Eliminar todas las pólizas"):
-        st.session_state['polizas'] = pd.DataFrame(columns=['Folio', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber'])
-        st.warning("Se eliminaron todas las pólizas.")
+elif menu == "Balance General":
+    mostrar_balance_general()
+
+elif menu == "Configuración":
+    st.title("Configuración del Sistema")
+    empresa = st.text_input("Nombre de la Empresa", st.session_state['configuracion']['Empresa'])
+    rfc = st.text_input("RFC", st.session_state['configuracion']['RFC'])
+    if st.button("Guardar Configuración"):
+        st.session_state['configuracion']['Empresa'] = empresa
+        st.session_state['configuracion']['RFC'] = rfc
+        st.success("Configuración guardada correctamente")
