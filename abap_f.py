@@ -10,7 +10,7 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 
-# Datos iniciales (en memoria - podrías guardarlos en un CSV/SQLite para persistencia)
+# Datos iniciales
 if 'catalogo_cuentas' not in st.session_state:
     st.session_state['catalogo_cuentas'] = pd.DataFrame(columns=['Código', 'Nombre', 'Tipo'])
 
@@ -34,115 +34,47 @@ menu = st.sidebar.selectbox("Menú", [
     "Configuración"
 ])
 
-# Función para mostrar balances (balanza de comprobación)
-def mostrar_balanza():
-    if st.session_state['polizas'].empty:
-        st.warning("No hay movimientos registrados.")
-        return
-    balanza = st.session_state['polizas'].groupby('Cuenta').agg({'Debe': 'sum', 'Haber': 'sum'}).reset_index()
+# Módulo de Pólizas
+if menu == "Módulo de Pólizas":
+    st.title("Módulo de Pólizas")
 
-    # Mostrar la balanza
-    st.dataframe(balanza)
+    with st.form("Alta de Póliza"):
+        folio = st.text_input("Folio")
+        fecha = st.date_input("Fecha")
+        concepto = st.text_input("Concepto")
+        st.write("### Movimientos")
 
-    # Mostrar las sumas finales de debe y haber
-    total_debe = balanza['Debe'].sum()
-    total_haber = balanza['Haber'].sum()
+        movimientos = []
+        for i in range(3):
+            col1, col2, col3 = st.columns(3)
+            cuenta = col1.selectbox(f"Cuenta {i+1}", st.session_state['catalogo_cuentas']['Código'].tolist(), index=None, placeholder="Selecciona una cuenta")
+            debe = col2.number_input(f"Debe {i+1}", min_value=0.0, format="%.2f")
+            haber = col3.number_input(f"Haber {i+1}", min_value=0.0, format="%.2f")
+            movimientos.append((cuenta, debe, haber))
 
-    st.write("### Totales")
-    st.write(f"Total Debe: {total_debe:.2f}")
-    st.write(f"Total Haber: {total_haber:.2f}")
-
-# Función para mostrar el estado de resultados
-def mostrar_estado_resultados():
-    if st.session_state['polizas'].empty:
-        st.warning("No hay movimientos registrados.")
-        return
-
-    # Filtrar las cuentas de ingresos y gastos
-    ingresos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Ingresos']['Código']
-    gastos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Gastos']['Código']
-
-    # Sumar los movimientos de ingresos y gastos
-    ingresos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(ingresos)].agg({'Debe': 'sum', 'Haber': 'sum'})
-    gastos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(gastos)].agg({'Debe': 'sum', 'Haber': 'sum'})
-
-    # Calcular el estado de resultados
-    ingresos_totales = ingresos_sum['Haber'] - ingresos_sum['Debe']
-    gastos_totales = gastos_sum['Debe'] - gastos_sum['Haber']
-    utilidad = ingresos_totales - gastos_totales
-
-    st.write("### Estado de Resultados")
-    st.write(f"Ingresos Totales: {ingresos_totales:.2f}")
-    st.write(f"Gastos Totales: {gastos_totales:.2f}")
-    st.write(f"Utilidad Neta: {utilidad:.2f}")
-
-# Función para mostrar el balance general
-def mostrar_balance_general():
-    if st.session_state['polizas'].empty:
-        st.warning("No hay movimientos registrados.")
-        return
-
-    # Filtrar las cuentas de activos, pasivos y capital
-    activos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Activo']['Código']
-    pasivos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Pasivo']['Código']
-    capital = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Capital']['Código']
-
-    # Sumar los movimientos de cada tipo de cuenta
-    activos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(activos)].agg({'Debe': 'sum', 'Haber': 'sum'})
-    pasivos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(pasivos)].agg({'Debe': 'sum', 'Haber': 'sum'})
-    capital_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(capital)].agg({'Debe': 'sum', 'Haber': 'sum'})
-
-    # Calcular el balance
-    total_activos = activos_sum['Debe'] - activos_sum['Haber']
-    total_pasivos = pasivos_sum['Haber'] - pasivos_sum['Debe']
-    total_capital = capital_sum['Haber'] - capital_sum['Debe']
-
-    st.write("### Balance General")
-    st.write(f"Total Activos: {total_activos:.2f}")
-    st.write(f"Total Pasivos: {total_pasivos:.2f}")
-    st.write(f"Total Capital: {total_capital:.2f}")
-
-# Menú principal
-if menu == "Inicio":
-    st.image("UNRC.png", caption="Universidad Nacional Rosario Castellanos", width=550)
-    st.title("Sistema Contable de Información Financiera")
-    st.write("Bienvenido al Sistema Contable para la UCA de Sistemas Contables de Información Financiera.")
-
-elif menu == "Catálogo de Cuentas":
-    st.title("Catálogo de Cuentas")
-
-    with st.form("Alta de Cuenta"):
-        codigo = st.text_input("Código")
-        nombre = st.text_input("Nombre")
-        tipo = st.selectbox("Tipo", ["Activo", "Pasivo", "Capital", "Ingresos", "Gastos"])
-        submit = st.form_submit_button("Agregar Cuenta")
+        submit = st.form_submit_button("Agregar Póliza")
 
         if submit:
-            nueva_cuenta = pd.DataFrame([[codigo, nombre, tipo]], columns=['Código', 'Nombre', 'Tipo'])
-            st.session_state['catalogo_cuentas'] = pd.concat([st.session_state['catalogo_cuentas'], nueva_cuenta], ignore_index=True)
-            st.success("Cuenta agregada correctamente")
+            for cuenta, debe, haber in movimientos:
+                if cuenta and (debe > 0 or haber > 0):
+                    nueva_linea = pd.DataFrame([[folio, fecha, concepto, cuenta, debe, haber]],
+                                               columns=['Folio', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber'])
+                    st.session_state['polizas'] = pd.concat([st.session_state['polizas'], nueva_linea], ignore_index=True)
+            st.success("Póliza registrada correctamente")
 
-    st.dataframe(st.session_state['catalogo_cuentas'])
+    st.write("### Pólizas Registradas")
 
-elif menu == "Módulo de Pólizas":
-    st.title("Módulo de Pólizas")
-    # Implementación del módulo de pólizas aquí
+    if not st.session_state['polizas'].empty:
+        for index, row in st.session_state['polizas'].iterrows():
+            col1, col2 = st.columns([4, 1])
+            col1.write(f"**Folio:** {row['Folio']} | **Fecha:** {row['Fecha']} | **Concepto:** {row['Concepto']}")
+            if col2.button("Eliminar", key=f"del_{index}"):
+                st.session_state['polizas'].drop(index, inplace=True)
+                st.session_state['polizas'].reset_index(drop=True, inplace=True)
+                st.experimental_rerun()
+    else:
+        st.write("No hay pólizas registradas.")
 
-elif menu == "Consultas (Auxiliares y Balanzas)":
-    st.title("Consultas")
-    mostrar_balanza()
-
-elif menu == "Estado de Resultados":
-    mostrar_estado_resultados()
-
-elif menu == "Balance General":
-    mostrar_balance_general()
-
-elif menu == "Configuración":
-    st.title("Configuración del Sistema")
-    empresa = st.text_input("Nombre de la Empresa", st.session_state['configuracion']['Empresa'])
-    rfc = st.text_input("RFC", st.session_state['configuracion']['RFC'])
-    if st.button("Guardar Configuración"):
-        st.session_state['configuracion']['Empresa'] = empresa
-        st.session_state['configuracion']['RFC'] = rfc
-        st.success("Configuración guardada correctamente")
+    if st.button("Eliminar todas las pólizas"):
+        st.session_state['polizas'] = pd.DataFrame(columns=['Folio', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber'])
+        st.warning("Se eliminaron todas las pólizas.")
