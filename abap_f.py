@@ -10,109 +10,109 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 
-# Inicializar las tablas en la sesión
-if 'buchungen' not in st.session_state:
-    st.session_state['buchungen'] = pd.DataFrame(columns=['BELNR', 'BUKRS', 'GJAHR', 'KONTO', 'SOLL', 'HABEN'])
-
-if 'catalogo_sat' not in st.session_state:
-    st.session_state['catalogo_sat'] = pd.DataFrame(columns=['CUENTA', 'DESCRIPCION', 'TIPO'])
-
-# Función para agregar cuentas al catálogo del SAT
-def agregar_cuenta_sat(cuenta, descripcion, tipo):
-    nueva_fila = pd.DataFrame({'CUENTA': [cuenta], 'DESCRIPCION': [descripcion], 'TIPO': [tipo]})
-    st.session_state['catalogo_sat'] = pd.concat([st.session_state['catalogo_sat'], nueva_fila], ignore_index=True)
-
-# Función para agregar registros de pólizas
-def agregar_póliza(belnr, bukrs, gjahr, cuentas, solls, habens):
-    for i in range(len(cuentas)):
-        nueva_fila = pd.DataFrame({
-            'BELNR': [belnr],
-            'BUKRS': [bukrs],
-            'GJAHR': [gjahr],
-            'KONTO': [cuentas[i]],
-            'SOLL': [solls[i]],
-            'HABEN': [habens[i]]
-        })
-        st.session_state['buchungen'] = pd.concat([st.session_state['buchungen'], nueva_fila], ignore_index=True)
+# Inicializar datos en memoria
+if 'catalogo_cuentas' not in st.session_state:
+    st.session_state['catalogo_cuentas'] = pd.DataFrame(columns=['Código', 'Nombre', 'Tipo'])
+if 'polizas' not in st.session_state:
+    st.session_state['polizas'] = pd.DataFrame(columns=['Folio', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber'])
+if 'configuracion' not in st.session_state:
+    st.session_state['configuracion'] = {"Empresa": "Mi Empresa S.A. de C.V.", "RFC": "XAXX010101000"}
 
 # Menú lateral
 menu = st.sidebar.selectbox("Menú", [
-    "Inicio",
-    "Catálogo de Cuentas",
-    "Módulo de Pólizas",
-    "Consultas (Auxiliares y Balanzas)",
-    "Estado de Resultados",
-    "Balance General",
-    "Configuración"
-])
+    "Inicio", "Catálogo de Cuentas", "Módulo de Pólizas", "Consultas (Auxiliares y Balanzas)",
+    "Estado de Resultados", "Balance General", "Configuración", "Simulación ABAP FI"])
 
-# Sección de Catálogo de Cuentas
-if menu == "Catálogo de Cuentas":
-    st.title("Catálogo de Cuentas del SAT")
-    with st.form(key="form_cuenta"):
-        cuenta = st.text_input("CUENTA")
-        descripcion = st.text_input("DESCRIPCIÓN")
-        tipo = st.selectbox("TIPO", ["Activo", "Pasivo", "Capital", "Ingreso", "Egreso"])
-        submit_button = st.form_submit_button(label="Agregar Cuenta")
-        if submit_button:
-            agregar_cuenta_sat(cuenta, descripcion, tipo)
-            st.success("Cuenta agregada exitosamente.")
+# Función de simulación de ejecución de comandos ABAP
+def ejecutar_comando_abap(comando):
+    if "SELECT" in comando:
+        return st.session_state['polizas']
+    return pd.DataFrame()
 
-# Sección de Pólizas
+# Inicio
+if menu == "Inicio":
+    st.image("UNRC.png", caption="Universidad Nacional Rosario Castellanos", width=550)
+    st.title("Sistema Contable de Información Financiera")
+    st.write("Bienvenido al Sistema Contable para la UCA de Sistemas Contables de Información Financiera.")
+
+# Catálogo de Cuentas
+elif menu == "Catálogo de Cuentas":
+    st.title("Catálogo de Cuentas")
+    with st.form("Alta de Cuenta"):
+        codigo = st.text_input("Código")
+        nombre = st.text_input("Nombre")
+        tipo = st.selectbox("Tipo", ["Activo", "Pasivo", "Capital", "Ingresos", "Gastos"])
+        submit = st.form_submit_button("Agregar Cuenta")
+        if submit:
+            nueva_cuenta = pd.DataFrame([[codigo, nombre, tipo]], columns=['Código', 'Nombre', 'Tipo'])
+            st.session_state['catalogo_cuentas'] = pd.concat([st.session_state['catalogo_cuentas'], nueva_cuenta], ignore_index=True)
+            st.success("Cuenta agregada correctamente")
+    st.dataframe(st.session_state['catalogo_cuentas'])
+
+# Módulo de Pólizas
 elif menu == "Módulo de Pólizas":
     st.title("Módulo de Pólizas")
-    cuentas_disponibles = st.session_state['catalogo_sat']['CUENTA'].tolist()
+    with st.form("Alta de Póliza"):
+        folio = st.text_input("Folio")
+        fecha = st.date_input("Fecha")
+        concepto = st.text_input("Concepto")
+        cuenta = st.selectbox("Cuenta", st.session_state['catalogo_cuentas']['Código'].tolist())
+        debe = st.number_input("Debe", min_value=0.0, format="%.2f")
+        haber = st.number_input("Haber", min_value=0.0, format="%.2f")
+        submit = st.form_submit_button("Agregar Póliza")
+        if submit:
+            nueva_poliza = pd.DataFrame([[folio, fecha, concepto, cuenta, debe, haber]],
+                                        columns=['Folio', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber'])
+            st.session_state['polizas'] = pd.concat([st.session_state['polizas'], nueva_poliza], ignore_index=True)
+            st.success("Póliza registrada correctamente")
+    st.dataframe(st.session_state['polizas'])
 
-    with st.form(key="form_póliza"):
-        belnr = st.text_input("BELNR (Número de documento)")
-        bukrs = st.text_input("BUKRS (Sociedad)")
-        gjahr = st.text_input("GJAHR (Año fiscal)")
-
-        cuentas = []
-        solls = []
-        habens = []
-
-        for i in range(3):  # Mínimo tres registros
-            cuenta = st.selectbox(f"KONTO {i+1} (Cuenta)", cuentas_disponibles) if cuentas_disponibles else st.text_input(f"KONTO {i+1}")
-            soll = st.number_input(f"SOLL {i+1} (Debe)", min_value=0.0)
-            haben = st.number_input(f"HABEN {i+1} (Haber)", min_value=0.0)
-
-            cuentas.append(cuenta)
-            solls.append(soll)
-            habens.append(haben)
-
-        submit_button = st.form_submit_button(label="Agregar Póliza")
-        if submit_button:
-            agregar_póliza(belnr, bukrs, gjahr, cuentas, solls, habens)
-            st.success("Póliza agregada exitosamente.")
-
-# Sección de Consultas
+# Consultas y Balanzas
 elif menu == "Consultas (Auxiliares y Balanzas)":
+    st.title("Consultas")
+    cuenta_seleccionada = st.selectbox("Selecciona una cuenta", st.session_state['catalogo_cuentas']['Código'].tolist())
+    if cuenta_seleccionada:
+        auxiliar = st.session_state['polizas'][st.session_state['polizas']['Cuenta'] == cuenta_seleccionada]
+        st.dataframe(auxiliar)
+
+# Estado de Resultados
+elif menu == "Estado de Resultados":
+    st.title("Estado de Resultados")
+    ingresos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Ingresos']['Código']
+    gastos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Gastos']['Código']
+    ingresos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(ingresos)].sum()
+    gastos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(gastos)].sum()
+    utilidad = ingresos_sum['Haber'] - ingresos_sum['Debe'] - (gastos_sum['Debe'] - gastos_sum['Haber'])
+    st.write(f"Utilidad Neta: {utilidad:.2f}")
+
+# Balance General
+elif menu == "Balance General":
+    st.title("Balance General")
+    activos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Activo']['Código']
+    pasivos = st.session_state['catalogo_cuentas'][st.session_state['catalogo_cuentas']['Tipo'] == 'Pasivo']['Código']
+    activos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(activos)].sum()
+    pasivos_sum = st.session_state['polizas'][st.session_state['polizas']['Cuenta'].isin(pasivos)].sum()
+    st.write(f"Total Activos: {activos_sum['Debe'] - activos_sum['Haber']:.2f}")
+    st.write(f"Total Pasivos: {pasivos_sum['Haber'] - pasivos_sum['Debe']:.2f}")
+
+# Configuración
+elif menu == "Configuración":
+    st.title("Configuración")
+    empresa = st.text_input("Empresa", st.session_state['configuracion']['Empresa'])
+    rfc = st.text_input("RFC", st.session_state['configuracion']['RFC'])
+    if st.button("Guardar Configuración"):
+        st.session_state['configuracion']['Empresa'] = empresa
+        st.session_state['configuracion']['RFC'] = rfc
+        st.success("Configuración guardada correctamente")
+    st.json(st.session_state['configuracion'])
+
+# Simulación de ABAP FI
+elif menu == "Simulación ABAP FI":
     st.title("Consultas con Comandos ABAP")
     abap_comando = st.text_area("Ingrese su comando ABAP", "SELECT * FROM buchungen WHERE BELNR = '1001'")
-
     if st.button("Ejecutar Comando ABAP"):
         resultado = ejecutar_comando_abap(abap_comando)
         if not resultado.empty:
             st.dataframe(resultado)
         else:
             st.warning("No se encontraron resultados.")
-
-# Estado de Resultados
-elif menu == "Estado de Resultados":
-    st.title("Estado de Resultados")
-    if st.button("Generar Estado de Resultados"):
-        st.write("### Estado de Resultados:")
-        st.dataframe(pd.DataFrame({'Ingresos': [0], 'Egresos': [0], 'Resultado Neto': [0]}))
-
-# Balance General
-elif menu == "Balance General":
-    st.title("Balance General")
-    if st.button("Generar Balance General"):
-        st.write("### Balance General:")
-        st.dataframe(pd.DataFrame({'Activo': [0], 'Pasivo': [0], 'Capital': [0], 'Total': [0]}))
-
-# Configuración
-elif menu == "Configuración":
-    st.title("Configuración")
-    st.write("Aquí puedes configurar aspectos del sistema.")
