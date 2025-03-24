@@ -10,7 +10,7 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 
-# Datos iniciales
+# Datos iniciales (en memoria - podrías guardarlos en un CSV/SQLite para persistencia)
 if 'catalogo_cuentas' not in st.session_state:
     st.session_state['catalogo_cuentas'] = pd.DataFrame(columns=['Código', 'Nombre', 'Tipo'])
 
@@ -63,18 +63,16 @@ if menu == "Módulo de Pólizas":
             st.success("Póliza registrada correctamente")
 
     st.write("### Pólizas Registradas")
+    st.dataframe(st.session_state['polizas'])
 
+    # Eliminar una póliza específica
     if not st.session_state['polizas'].empty:
-        for index, row in st.session_state['polizas'].iterrows():
-            col1, col2 = st.columns([4, 1])
-            col1.write(f"**Folio:** {row['Folio']} | **Fecha:** {row['Fecha']} | **Concepto:** {row['Concepto']}")
-            if col2.button("Eliminar", key=f"del_{index}"):
-                st.session_state['polizas'].drop(index, inplace=True)
-                st.session_state['polizas'].reset_index(drop=True, inplace=True)
-                st.experimental_rerun()
-    else:
-        st.write("No hay pólizas registradas.")
+        poliza_a_eliminar = st.selectbox("Selecciona una póliza para eliminar", st.session_state['polizas']['Folio'].unique())
+        if st.button("Eliminar póliza seleccionada"):
+            st.session_state['polizas'] = st.session_state['polizas'][st.session_state['polizas']['Folio'] != poliza_a_eliminar]
+            st.success(f"Se eliminó la póliza con folio {poliza_a_eliminar}.")
 
+    # Eliminar todas las pólizas
     if st.button("Eliminar todas las pólizas"):
         st.session_state['polizas'] = pd.DataFrame(columns=['Folio', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber'])
         st.warning("Se eliminaron todas las pólizas.")
